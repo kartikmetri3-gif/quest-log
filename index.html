@@ -632,24 +632,22 @@ Only include actions the user clearly asked for. Respond ONLY with valid JSON, n
 {"reply": "short, warm, honest message to show the student", "actions": []}
 Keep replies under 60 words. Be encouraging but honest — don't just praise everything.`;
 
-  const history = chatHistory.slice(-10).map(m=>({
-    role: m.role==='assistant' ? 'model' : 'user',
-    parts: [{text: m.content}]
-  }));
+  const msgs = chatHistory.slice(-10).map(m=>({role:m.role, content:m.content}));
 
   let aiText = "Sorry, I couldn't reach the coach right now.";
   let actions = [];
-  const GEMINI_API_KEY = "AQ.Ab8RN6LF0axH1LphNa2Kv0Wj15W-W47C_bbux8JAY2jDVoeM2g";
+  const GROQ_API_KEY = "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";
   try{
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`, {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY
+        "Authorization": `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        systemInstruction: {parts:[{text: sysPrompt}]},
-        contents: history
+        model: "openai/gpt-oss-120b",
+        messages: [{role:"system", content: sysPrompt}, ...msgs],
+        temperature: 0.7
       })
     });
     if(!response.ok){
@@ -657,7 +655,7 @@ Keep replies under 60 words. Be encouraging but honest — don't just praise eve
       throw new Error(`HTTP ${response.status}: ${errBody.slice(0,200)}`);
     }
     const data = await response.json();
-    const raw = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+    const raw = data.choices?.[0]?.message?.content || '';
     const clean = raw.replace(/```json|```/g,'').trim();
     const parsed = JSON.parse(clean);
     aiText = parsed.reply || aiText;
