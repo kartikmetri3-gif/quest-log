@@ -196,6 +196,11 @@
     <h2 class="section-title">PROGRESS WEB — THIS MONTH</h2>
     <div class="radar-wrap"><svg id="radarSvg" viewBox="0 0 240 220" style="width:220px;height:auto;"></svg></div>
 
+    <h2 class="section-title">AI COACH — GROQ API KEY (SAVED ONLY IN THIS BROWSER)</h2>
+    <div class="card">
+      <input type="password" class="plain" id="apiKeyInput" placeholder="Paste your gsk_... key here" />
+    </div>
+
     <h2 class="section-title">PYTHON ROADMAP</h2>
     <div class="card"><textarea class="plain" id="py-roadmap" placeholder="Write your Python roadmap / current level..." style="min-height:120px;"></textarea></div>
   </div>
@@ -224,7 +229,7 @@
 </nav>
 
 <script>
-const K_GOALS='goals-config', K_LOG='daily-log', K_EXPLAN='exercise-plan', K_EXLOG='exercise-log', K_ROADMAP='roadmap-config', K_PROFILE='profile-config', K_CHAT='chat-history';
+const K_GOALS='goals-config', K_LOG='daily-log', K_EXPLAN='exercise-plan', K_EXLOG='exercise-log', K_ROADMAP='roadmap-config', K_PROFILE='profile-config', K_CHAT='chat-history', K_APIKEY='groq-api-key';
 
 let goals = [
   {id:'g1',name:'Goal 1',cat:'study'},
@@ -239,6 +244,7 @@ let exPlan = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sun
 let roadmap = {py:''};
 let profile = {name:'', bestStreak:0};
 let chatHistory = [];
+let apiKey = '';
 
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function keyFor(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -252,6 +258,7 @@ async function loadAll(){
   try{const v=localStorage.getItem(K_ROADMAP); if(v) roadmap=JSON.parse(v);}catch(e){}
   try{const v=localStorage.getItem(K_PROFILE); if(v) profile=JSON.parse(v);}catch(e){}
   try{const v=localStorage.getItem(K_CHAT); if(v) chatHistory=JSON.parse(v);}catch(e){}
+  try{const v=localStorage.getItem(K_APIKEY); if(v) apiKey=v;}catch(e){}
   render();
   renderChat();
 }
@@ -496,6 +503,10 @@ function renderProfile(){
   document.getElementById('py-roadmap').value = roadmap.py;
   document.getElementById('py-roadmap').onchange = async(e)=>{ roadmap.py=e.target.value; await saveRoadmap(); };
 
+  const apInp = document.getElementById('apiKeyInput');
+  if(document.activeElement !== apInp) apInp.value = apiKey;
+  apInp.onchange = (e)=>{ apiKey = e.target.value.trim(); localStorage.setItem(K_APIKEY, apiKey); };
+
   const xp = totalXp();
   const info = getRankInfo(xp);
   document.getElementById('avatarRing').innerHTML = rankBadgeSVG(info.rank, 56);
@@ -636,13 +647,17 @@ Keep replies under 60 words. Be encouraging but honest — don't just praise eve
 
   let aiText = "Sorry, I couldn't reach the coach right now.";
   let actions = [];
-  const GROQ_API_KEY = "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";
+  if(!apiKey){
+    chatHistory.push({role:'assistant', content:'{}', display:"I need your Groq API key first — go to the Profile tab and paste it into the AI Coach box, then come back and try again."});
+    renderChat(); await saveChat();
+    return;
+  }
   try{
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: "openai/gpt-oss-120b",
